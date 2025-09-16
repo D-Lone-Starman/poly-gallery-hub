@@ -57,6 +57,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // 3D Shop custom colors
+        shop: {
+          primary: "hsl(var(--shop-primary))",
+          secondary: "hsl(var(--shop-secondary))",
+          surface: "hsl(var(--shop-surface))",
+          "surface-elevated": "hsl(var(--shop-surface-elevated))",
+          "text-primary": "hsl(var(--shop-text-primary))",
+          "text-secondary": "hsl(var(--shop-text-secondary))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
