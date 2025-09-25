@@ -8,6 +8,27 @@ interface ShopHeaderProps {
 }
 
 export const ShopHeader = ({ onUploadClick }: ShopHeaderProps) => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error("Error signing out");
+    } else {
+      toast.success("Signed out successfully");
+      navigate("/");
+    }
+  };
+
+  const handleAuthClick = () => {
+    if (user) {
+      handleSignOut();
+    } else {
+      navigate("/auth");
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">

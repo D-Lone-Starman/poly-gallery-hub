@@ -8,64 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Grid, List, Filter } from "lucide-react";
 import { toast } from "sonner";
-
-// Mock data for demonstration
-const mockModels = [
-  {
-    id: "1",
-    name: "Modern Chair",
-    author: "DesignPro",
-    price: 29.99,
-    category: "Furniture",
-    rating: 4.8,
-    downloads: 1247,
-  },
-  {
-    id: "2", 
-    name: "Sci-Fi Robot",
-    author: "TechArtist",
-    price: 0,
-    category: "Characters",
-    rating: 4.6,
-    downloads: 2341,
-  },
-  {
-    id: "3",
-    name: "Sports Car",
-    author: "AutoModeler",
-    price: 49.99,
-    category: "Vehicles", 
-    rating: 4.9,
-    downloads: 892,
-  },
-  {
-    id: "4",
-    name: "Medieval Sword",
-    author: "FantasyCrafter",
-    price: 15.99,
-    category: "Weapons",
-    rating: 4.7,
-    downloads: 1556,
-  },
-  {
-    id: "5",
-    name: "Office Building",
-    author: "ArchViz",
-    price: 79.99,
-    category: "Architecture",
-    rating: 4.5,
-    downloads: 443,
-  },
-  {
-    id: "6",
-    name: "Tree Collection",
-    author: "NatureArt",
-    price: 0,
-    category: "Nature",
-    rating: 4.4,
-    downloads: 3021,
-  },
-];
+import { useModels } from "@/hooks/useModels";
+import { supabase } from "@/integrations/supabase/client";
 
 const categories = ["All", "Furniture", "Characters", "Vehicles", "Weapons", "Architecture", "Nature"];
 
@@ -74,25 +18,43 @@ export const Shop = () => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-
-  const filteredModels = mockModels.filter(model => 
-    selectedCategory === "All" || model.category === selectedCategory
-  );
+  
+  const { models, loading, error, refetch, incrementDownloads } = useModels(selectedCategory);
 
   const handleModelView = (id: string) => {
     setSelectedModel(id);
-    const model = mockModels.find(m => m.id === id);
+    const model = models.find(m => m.id === id);
     if (model) {
       toast.success(`Viewing ${model.name}`);
     }
   };
 
-  const handleModelDownload = (id: string) => {
-    const model = mockModels.find(m => m.id === id);
+  const handleModelDownload = async (id: string) => {
+    const model = models.find(m => m.id === id);
     if (model) {
-      toast.success(`Downloaded ${model.name}`);
+      try {
+        // Get the download URL
+        const { data } = supabase.storage.from('models').getPublicUrl(model.file_path);
+        
+        // Create a link and trigger download
+        const link = document.createElement('a');
+        link.href = data.publicUrl;
+        link.download = model.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Increment download count
+        await incrementDownloads(id);
+        toast.success(`Downloaded ${model.name}`);
+      } catch (error) {
+        toast.error("Failed to download model");
+        console.error("Download error:", error);
+      }
     }
   };
+
+  const selectedModelData = selectedModel ? models.find(m => m.id === selectedModel) : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,8 +66,8 @@ export const Shop = () => {
           <div className="lg:col-span-2">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-shop-text-primary mb-2">
-                {selectedModel ? 
-                  `Viewing: ${mockModels.find(m => m.id === selectedModel)?.name}` : 
+                {selectedModelData ? 
+                  `Viewing: ${selectedModelData.name}` : 
                   "3D Model Viewer"
                 }
               </h2>
@@ -118,7 +80,8 @@ export const Shop = () => {
             </div>
             
             <ModelViewer 
-              modelName={selectedModel ? mockModels.find(m => m.id === selectedModel)?.name : "Sample Models"}
+              modelPath={selectedModelData?.file_path}
+              modelName={selectedModelData?.name || "Sample Models"}
               className="w-full"
             />
           </div>
@@ -174,7 +137,7 @@ export const Shop = () => {
                 Model Catalog
               </h2>
               <p className="text-muted-foreground">
-                {filteredModels.length} models found
+                {loading ? "Loading..." : `${models.length} models found`}
                 {selectedCategory !== "All" && ` in ${selectedCategory}`}
               </p>
             </div>
@@ -206,27 +169,42 @@ export const Shop = () => {
           </div>
 
           {/* Models Grid */}
-          <div className={`grid gap-6 ${
-            viewMode === "grid" 
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
-              : "grid-cols-1"
-          }`}>
-            {filteredModels.map((model) => (
-              <ModelCard
-                key={model.id}
-                {...model}
-                onView={handleModelView}
-                onDownload={handleModelDownload}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Loading models...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <p className="text-red-500">Error: {error}</p>
+            </div>
+          ) : models.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No models found in this category.</p>
+            </div>
+          ) : (
+            <div className={`grid gap-6 ${
+              viewMode === "grid" 
+                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+                : "grid-cols-1"
+            }`}>
+              {models.map((model) => (
+                <ModelCard
+                  key={model.id}
+                  {...model}
+                  onView={handleModelView}
+                  onDownload={handleModelDownload}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
       {/* Upload Modal */}
       <UploadModal 
         open={uploadModalOpen} 
-        onOpenChange={setUploadModalOpen} 
+        onOpenChange={setUploadModalOpen}
+        onUploadSuccess={refetch}
       />
     </div>
   );

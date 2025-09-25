@@ -5,17 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, File, X } from "lucide-react";
+import { Upload, File, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUploadSuccess?: () => void;
 }
 
-export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
+export const UploadModal = ({ open, onOpenChange, onUploadSuccess }: UploadModalProps) => {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -48,9 +53,14 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast.error("Please sign in to upload models");
+      return;
+    }
+
     if (selectedFiles.length === 0) {
       toast.error("Please select at least one file");
       return;
@@ -61,19 +71,59 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
       return;
     }
 
-    // Here you would upload to your backend
-    toast.success("Model uploaded successfully!");
-    onOpenChange(false);
-    
-    // Reset form
-    setSelectedFiles([]);
-    setFormData({
-      name: "",
-      description: "",
-      category: "",
-      price: "",
-      tags: ""
-    });
+    setUploading(true);
+
+    try {
+      // Upload the first file (main model file)
+      const mainFile = selectedFiles[0];
+      const fileExt = mainFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${formData.name.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExt}`;
+      const filePath = `${formData.category.toLowerCase()}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('models')
+        .upload(filePath, mainFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Insert model data into database
+      const { error: dbError } = await supabase
+        .from('models')
+        .insert({
+          name: formData.name,
+          description: formData.description,
+          author: user.email!,
+          price: parseFloat(formData.price) || 0,
+          category: formData.category,
+          tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+          file_path: filePath
+        });
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      toast.success("Model uploaded successfully!");
+      onOpenChange(false);
+      onUploadSuccess?.();
+      
+      // Reset form
+      setSelectedFiles([]);
+      setFormData({
+        name: "",
+        description: "",
+        category: "",
+        price: "",
+        tags: ""
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to upload model");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const removeFile = (index: number) => {
@@ -214,11 +264,12 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
 
           {/* Submit buttons */}
           <div className="flex gap-3 justify-end">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Upload Model
+            <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={uploading}>
+              {uploading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {uploading ? "Uploading..." : "Upload Model"}
             </Button>
           </div>
         </form>
