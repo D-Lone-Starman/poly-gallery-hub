@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Upload, User, ShoppingCart, Menu } from "lucide-react";
+import { Search, Upload, User, ShoppingCart, Menu, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface ShopHeaderProps {
   onUploadClick: () => void;
@@ -58,27 +61,28 @@ export const ShopHeader = ({ onUploadClick }: ShopHeaderProps) => {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            <Button
-              onClick={onUploadClick}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            <Button 
+              variant="outline" 
+              className="border-border hover:bg-shop-surface-elevated"
+              onClick={handleAuthClick}
             >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Model
+              {user ? <LogOut className="w-4 h-4 mr-2" /> : <User className="w-4 h-4 mr-2" />}
+              {user ? "Sign Out" : "Sign In"}
             </Button>
-
+            
             <Button variant="ghost" size="icon" className="relative">
               <ShoppingCart className="w-5 h-5" />
               <Badge className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-secondary text-xs p-0 flex items-center justify-center">
                 0
               </Badge>
             </Button>
-
-            <Button variant="ghost" size="icon">
-              <User className="w-5 h-5" />
-            </Button>
-
-            <Button variant="ghost" size="icon" className="lg:hidden">
-              <Menu className="w-5 h-5" />
+            
+            <Button 
+              onClick={user ? onUploadClick : () => navigate("/auth")} 
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Model
             </Button>
           </div>
         </div>

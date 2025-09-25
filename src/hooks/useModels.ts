@@ -52,7 +52,10 @@ export const useModels = (category: string = 'All') => {
 
   const incrementDownloads = async (modelId: string) => {
     try {
-      const { error } = await supabase.rpc('increment_downloads', { model_id: modelId });
+      const { error } = await supabase
+        .from('models')
+        .update({ downloads: supabase.rpc('increment', { x: 1 }) })
+        .eq('id', modelId);
 
       if (error) {
         throw error;

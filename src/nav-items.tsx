@@ -1,7 +1,7 @@
-import { Index } from "@/pages/Index";
+import Index from "@/pages/Index";
 import { Shop } from "@/pages/Shop";
 import { Auth } from "@/pages/Auth";
-import { NotFound } from "@/pages/NotFound";
+import NotFound from "@/pages/NotFound";
 
 export const navItems = [
   {
