@@ -52,9 +52,13 @@ export const useModels = (category: string = 'All') => {
 
   const incrementDownloads = async (modelId: string) => {
     try {
+      // Get current model data first
+      const currentModel = models.find(model => model.id === modelId);
+      if (!currentModel) return;
+
       const { error } = await supabase
         .from('models')
-        .update({ downloads: supabase.rpc('increment', { x: 1 }) })
+        .update({ downloads: currentModel.downloads + 1 })
         .eq('id', modelId);
 
       if (error) {
